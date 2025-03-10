@@ -259,7 +259,7 @@ export interface WebSocketMessage {
      * The contents of the message as a raw buffer. This is already decompressed,
      * if the WebSocket uses compression.
      */
-    content: Uint8Array;
+    content: {data:Uint8Array};
 
     /**
      * Whether this is a string message or a raw binary data message.
@@ -276,6 +276,7 @@ export interface WebSocketMessage {
 
     timingEvents: TimingEvents;
     tags: string[];
+    url:string;
 }
 
 export interface WebSocketClose {

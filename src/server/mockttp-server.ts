@@ -163,7 +163,7 @@ export class MockttpServer extends AbstractMockttp implements Mockttp {
 
                     // Destroy just in case there is something that needs cleanup here. Catch because most
                     // of the time this will error with 'Server is not running'.
-                    this.server!.destroy().catch(() => {});
+                    this.server!.destroy().catch(() => { });
                     resolve(this.start());
                 } else {
                     reject(e);
@@ -319,48 +319,48 @@ export class MockttpServer extends AbstractMockttp implements Mockttp {
         if (this.eventEmitter.listenerCount('request') === 0) return;
 
         waitForCompletedRequest(request)
-        .then((completedReq: CompletedRequest) => {
-            setImmediate(() => {
-                this.eventEmitter.emit('request', Object.assign(
-                    completedReq,
-                    {
-                        timingEvents: _.clone(completedReq.timingEvents),
-                        tags: _.clone(completedReq.tags)
-                    }
-                ));
-            });
-        })
-        .catch(console.error);
+            .then((completedReq: CompletedRequest) => {
+                setImmediate(() => {
+                    this.eventEmitter.emit('request', Object.assign(
+                        completedReq,
+                        {
+                            timingEvents: _.clone(completedReq.timingEvents),
+                            tags: _.clone(completedReq.tags)
+                        }
+                    ));
+                });
+            })
+            .catch(console.error);
     }
 
     private announceResponseAsync(response: OngoingResponse | CompletedResponse) {
         if (this.eventEmitter.listenerCount('response') === 0) return;
 
         waitForCompletedResponse(response)
-        .then((res: CompletedResponse) => {
-            setImmediate(() => {
-                this.eventEmitter.emit('response', Object.assign(res, {
-                    timingEvents: _.clone(res.timingEvents),
-                    tags: _.clone(res.tags)
-                }));
-            });
-        })
-        .catch(console.error);
+            .then((res: CompletedResponse) => {
+                setImmediate(() => {
+                    this.eventEmitter.emit('response', Object.assign(res, {
+                        timingEvents: _.clone(res.timingEvents),
+                        tags: _.clone(res.tags)
+                    }));
+                });
+            })
+            .catch(console.error);
     }
 
     private announceWebSocketRequestAsync(request: OngoingRequest) {
         if (this.eventEmitter.listenerCount('websocket-request') === 0) return;
 
         waitForCompletedRequest(request)
-        .then((completedReq: CompletedRequest) => {
-            setImmediate(() => {
-                this.eventEmitter.emit('websocket-request', Object.assign(completedReq, {
-                    timingEvents: _.clone(completedReq.timingEvents),
-                    tags: _.clone(completedReq.tags)
-                }));
-            });
-        })
-        .catch(console.error);
+            .then((completedReq: CompletedRequest) => {
+                setImmediate(() => {
+                    this.eventEmitter.emit('websocket-request', Object.assign(completedReq, {
+                        timingEvents: _.clone(completedReq.timingEvents),
+                        tags: _.clone(completedReq.tags)
+                    }));
+                });
+            })
+            .catch(console.error);
     }
 
     private announceWebSocketUpgradeAsync(response: CompletedResponse) {
@@ -375,28 +375,27 @@ export class MockttpServer extends AbstractMockttp implements Mockttp {
         });
     }
 
-    private announceWebSocketMessageAsync(
+    private async announceWebSocketMessageAsync(
         request: OngoingRequest,
         direction: 'sent' | 'received',
-        content: Buffer,
-        isBinary: boolean
+        content: { data: Buffer },
+        isBinary: boolean,
+        url: string,
     ) {
         const eventName = `websocket-message-${direction}`;
         if (this.eventEmitter.listenerCount(eventName) === 0) return;
+        this.eventEmitter.emit(eventName, {
+            streamId: request.id,
 
-        setImmediate(() => {
-            this.eventEmitter.emit(eventName, {
-                streamId: request.id,
+            direction,
+            content,
+            isBinary,
 
-                direction,
-                content,
-                isBinary,
-
-                eventTimestamp: now(),
-                timingEvents: request.timingEvents,
-                tags: request.tags
-            } as WebSocketMessage);
-        });
+            eventTimestamp: now(),
+            timingEvents: request.timingEvents,
+            tags: request.tags,
+            url,
+        } as WebSocketMessage);
     }
 
     private announceWebSocketCloseAsync(
@@ -460,20 +459,31 @@ export class MockttpServer extends AbstractMockttp implements Mockttp {
 
             const httpResponse = parseRawHttpResponse(data, request);
             this.announceWebSocketUpgradeAsync(httpResponse);
-
+            const objectData = {
+                data
+            }
             ws.on('message', (data: Buffer, isBinary) => {
-                this.announceWebSocketMessageAsync(request, 'received', data, isBinary);
+                this.announceWebSocketMessageAsync(request, 'received', objectData, isBinary, ws.protocol);
             });
 
             // Wrap ws.send() to report all sent data:
             const _send = ws.send;
+
             const self = this;
             ws.send = function (data: any, options: any): any {
                 const isBinary = options.binary
                     ?? typeof data !== 'string';
 
-                _send.apply(this, arguments as any);
-                self.announceWebSocketMessageAsync(request, 'sent', asBuffer(data), isBinary);
+                const objectData = {
+                    data
+                }
+                const __send = _send.bind(this)
+                self.announceWebSocketMessageAsync(request, 'sent', objectData, isBinary, ws.protocol).then(() => {
+                    if (objectData.data) {
+                        __send(objectData.data, options);
+                    }
+                })
+
             };
 
             ws.on('close', (closeCode, closeReason) => {
@@ -548,7 +558,17 @@ export class MockttpServer extends AbstractMockttp implements Mockttp {
                 (req.socket.__lastHopEncrypted ? 'https' : 'http');
             req.path = req.url;
 
-            const host = req.headers[':authority'] || req.headers['host'];
+            let host;
+            if (type === 'websocket') {
+                if (req.headers['host'] && !req.headers['host'].includes(":")) {
+                    // @ts-ignore
+                    host = req.headers[':authority'] || `${req.headers['host']}:${req.socket.__tlsMetadata!.connectPort}`;
+                } else {
+                    host = req.headers[':authority'] || req.headers['host'];
+                }
+            } else {
+                host = req.headers[':authority'] || req.headers['host'];
+            }
             const absoluteUrl = `${req.protocol}://${host}${req.path}`;
 
             if (!req.headers[':path']) {
@@ -679,7 +699,7 @@ export class MockttpServer extends AbstractMockttp implements Mockttp {
                         (isErrorLike(e) && e.statusCode) || 500,
                         (isErrorLike(e) && e.statusMessage) || 'Server error'
                     );
-                } catch (e) {}
+                } catch (e) { }
 
                 try {
                     response.end((isErrorLike(e) && e.toString()) || e);
@@ -741,8 +761,8 @@ export class MockttpServer extends AbstractMockttp implements Mockttp {
             } else {
                 console.error("Failed to handle websocket:",
                     this.debug
-                    ? e
-                    : (isErrorLike(e) && e.message) || e
+                        ? e
+                        : (isErrorLike(e) && e.message) || e
                 );
                 this.sendWebSocketErrorResponse(socket, e);
             }
@@ -798,12 +818,12 @@ export class MockttpServer extends AbstractMockttp implements Mockttp {
 This request was: ${requestExplanation}
 
 ${(requestRules.length > 0 || webSocketRules.length > 0)
-    ? `The configured rules are:
+                ? `The configured rules are:
 ${requestRules.map((rule) => rule.explain()).join("\n")}
 ${webSocketRules.map((rule) => rule.explain()).join("\n")}
 `
-    : "There are no rules configured."
-}
+                : "There are no rules configured."
+            }
 ${await this.suggestRule(request)}`
     }
 
@@ -960,11 +980,11 @@ ${await this.suggestRule(request)}`
                     statusCode:
                         isHeaderOverflow
                             ? 431
-                        : 400,
+                            : 400,
                     statusMessage:
                         isHeaderOverflow
                             ? "Request Header Fields Too Large"
-                        : "Bad Request",
+                            : "Bad Request",
                     body: buildBodyReader(Buffer.from([]), {})
                 };
 
@@ -1017,9 +1037,8 @@ ${await this.suggestRule(request)}`
                 // Best guesses:
                 timingEvents: { startTime: Date.now(), startTimestamp: now() },
                 protocol: isTLS ? "https" : "http",
-                url: isTLS ? `https://${
-                    (socket as tls.TLSSocket).servername // Use the hostname from SNI
-                }/` : undefined,
+                url: isTLS ? `https://${(socket as tls.TLSSocket).servername // Use the hostname from SNI
+                    }/` : undefined,
 
                 // Unknowable:
                 path: undefined,
@@ -1080,8 +1099,7 @@ ${await this.suggestRule(request)}`
         upstreamSocket.once('connect', () => this.outgoingPassthroughSockets.add(upstreamSocket));
         upstreamSocket.once('close', () => this.outgoingPassthroughSockets.delete(upstreamSocket));
 
-        if (this.debug) console.log(`Passing through raw bypassed connection to ${host}:${targetPort}${
-            !port ? ' (assumed port)' : ''
-        }`);
+        if (this.debug) console.log(`Passing through raw bypassed connection to ${host}:${targetPort}${!port ? ' (assumed port)' : ''
+            }`);
     }
 }
