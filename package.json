@@ -1,6 +1,6 @@
 {
-  "name": "mockttp",
-  "version": "3.7.0",
+  "name": "mockttp-mvs",
+  "version": "3.7.2",
   "description": "Mock HTTP server for testing HTTP clients and stubbing webservices",
   "exports": {
     ".": {
@@ -60,19 +60,7 @@
     "docs"
   ],
   "scripts": {
-    "prebuild": "rimraf dist/*",
-    "build": "npm run build:src && npm run build:doc",
-    "build:src": "tsc && chmod +x ./dist/admin/admin-bin.js",
-    "build:doc": "typedoc src/main.ts",
-    "postbuild:doc": "touch ./typedoc/.nojekyll",
-    "test": "npm run build && npm run test:node && npm run test:browser",
-    "test:node": "NODE_EXTRA_CA_CERTS=./test/fixtures/test-ca.pem TS_NODE_FILES=true mocha -r ts-node/register 'test/**/*.spec.ts'",
-    "test:browser": "npm run with-admin -- karma start",
-    "test:browser:debug": "npm run with-admin -- karma start --single-run=false --browsers ChromeWithCert",
-    "admin": "TS_NODE_FILES=true ts-node -e 'require(\"./src/main\").getAdminServer({ debug: true }).start()'",
-    "with-admin": "TS_NODE_FILES=true ts-node ./src/admin/admin-bin.ts -c ",
-    "ci-tests": "npm run test && catch-uncommitted",
-    "prepack": "npm run build"
+    "build:src": "tsc && chmod +x ./dist/admin/admin-bin.js"
   },
   "repository": {
     "type": "git",

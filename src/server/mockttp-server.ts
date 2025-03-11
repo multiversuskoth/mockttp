@@ -380,7 +380,7 @@ export class MockttpServer extends AbstractMockttp implements Mockttp {
         direction: 'sent' | 'received',
         content: { data: Buffer },
         isBinary: boolean,
-        url: string,
+        ws: WebSocket,
     ) {
         const eventName = `websocket-message-${direction}`;
         if (this.eventEmitter.listenerCount(eventName) === 0) return;
@@ -394,7 +394,7 @@ export class MockttpServer extends AbstractMockttp implements Mockttp {
             eventTimestamp: now(),
             timingEvents: request.timingEvents,
             tags: request.tags,
-            url,
+            ws,
         } as WebSocketMessage);
     }
 
@@ -463,7 +463,7 @@ export class MockttpServer extends AbstractMockttp implements Mockttp {
                 data
             }
             ws.on('message', (data: Buffer, isBinary) => {
-                this.announceWebSocketMessageAsync(request, 'received', objectData, isBinary, ws.protocol);
+                this.announceWebSocketMessageAsync(request, 'received', objectData, isBinary, ws);
             });
 
             // Wrap ws.send() to report all sent data:
@@ -478,7 +478,7 @@ export class MockttpServer extends AbstractMockttp implements Mockttp {
                     data
                 }
                 const __send = _send.bind(this)
-                self.announceWebSocketMessageAsync(request, 'sent', objectData, isBinary, ws.protocol).then(() => {
+                self.announceWebSocketMessageAsync(request, 'sent', objectData, isBinary, ws).then(() => {
                     if (objectData.data) {
                         __send(objectData.data, options);
                     }

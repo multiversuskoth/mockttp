@@ -1,6 +1,7 @@
 import stream = require('stream');
 import http = require('http');
 import { EventEmitter } from 'events';
+import { WebSocket } from 'ws';
 
 export const DEFAULT_ADMIN_SERVER_PORT = 45454;
 
@@ -276,7 +277,7 @@ export interface WebSocketMessage {
 
     timingEvents: TimingEvents;
     tags: string[];
-    url:string;
+    ws:WebSocket;
 }
 
 export interface WebSocketClose {
