@@ -62,7 +62,7 @@ import {
 } from "../util/header-utils";
 import { AbortError } from "../rules/requests/request-handlers";
 import { WebSocketRuleData, WebSocketRule } from "../rules/websockets/websocket-rule";
-import { RejectWebSocketHandler, WebSocketHandler } from "../rules/websockets/websocket-handlers";
+import { InterceptedWebSocket, RejectWebSocketHandler, WebSocketHandler } from "../rules/websockets/websocket-handlers";
 
 type ExtendedRawRequest = (http.IncomingMessage | http2.Http2ServerRequest) & {
     protocol?: string;
@@ -380,7 +380,7 @@ export class MockttpServer extends AbstractMockttp implements Mockttp {
         direction: 'sent' | 'received',
         content: { data: Buffer },
         isBinary: boolean,
-        ws: WebSocket,
+        ws: InterceptedWebSocket,
     ) {
         const eventName = `websocket-message-${direction}`;
         if (this.eventEmitter.listenerCount(eventName) === 0) return;
@@ -448,7 +448,7 @@ export class MockttpServer extends AbstractMockttp implements Mockttp {
             }
         });
 
-        socket.once('ws-upgrade', (ws: WebSocket) => {
+        socket.once('ws-upgrade', (ws: InterceptedWebSocket) => {
             upgradeCompleted = true;
 
             // Undo our write hook setup:

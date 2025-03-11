@@ -1,7 +1,7 @@
 import stream = require('stream');
 import http = require('http');
 import { EventEmitter } from 'events';
-import { WebSocket } from 'ws';
+import { InterceptedWebSocket } from './rules/websockets/websocket-handlers';
 
 export const DEFAULT_ADMIN_SERVER_PORT = 45454;
 
@@ -88,12 +88,12 @@ export interface TlsPassthroughEvent extends TlsConnectionEvent {
 
 export interface TlsHandshakeFailure extends TlsConnectionEvent {
     failureCause:
-        | 'closed'
-        | 'reset'
-        | 'cert-rejected'
-        | 'no-shared-cipher'
-        | 'handshake-timeout'
-        | 'unknown';
+    | 'closed'
+    | 'reset'
+    | 'cert-rejected'
+    | 'no-shared-cipher'
+    | 'handshake-timeout'
+    | 'unknown';
     timingEvents: TlsFailureTimingEvents;
 }
 
@@ -260,7 +260,7 @@ export interface WebSocketMessage {
      * The contents of the message as a raw buffer. This is already decompressed,
      * if the WebSocket uses compression.
      */
-    content: {data:Uint8Array};
+    content: { data: Uint8Array };
 
     /**
      * Whether this is a string message or a raw binary data message.
@@ -277,7 +277,7 @@ export interface WebSocketMessage {
 
     timingEvents: TimingEvents;
     tags: string[];
-    ws:WebSocket;
+    ws: InterceptedWebSocket;
 }
 
 export interface WebSocketClose {

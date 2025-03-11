@@ -62,7 +62,7 @@ export interface WebSocketHandler extends WebSocketHandlerDefinition {
     ): Promise<void>;
 }
 
-interface InterceptedWebSocket extends WebSocket {
+export interface InterceptedWebSocket extends WebSocket {
     upstreamWebSocket: WebSocket;
 }
 
